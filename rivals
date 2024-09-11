@@ -1,0 +1,502 @@
+for i,v in getconnections(game:GetService("ScriptContext").Error) do
+    v:Disable()
+  end
+  lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/IayZBoy/Test/main/neverlose_ui.lua"))()
+  lib:Theme("dark")
+  firstEmulation = true
+  repeat task.wait() until game.Loaded
+  globalX = 15
+  globalY = 15
+  main = lib:AddWindow("Nexity's Hub", "RIVALS - V0.1.3 - discord.gg/nexity")
+  nonBlatant = main:AddTab("Non-Blatant Features")
+  Blatant = main:AddTab("Blatant Features")
+  movement = main:AddTab("Movement")
+  antiCounter = main:AddTab("Counters")
+  counterSec = antiCounter:AddSection("Counters")
+  visuals = nonBlatant:AddSection("Visuals - Some Options May Not Apply Until Next Round")
+  gameUI = nonBlatant:AddSection("Game")
+  function calibrate()
+      lib:Notification():Notify("info", "Calibration", "Tap the Fire button.", 1)
+      pos = game.UserInputService.TouchTap:Wait()
+      X,Y = pos[1].X, pos[1].Y + 10
+      globalX = X
+      globalY = Y
+  end
+  function disc()
+      setclipboard("discord.gg/nexity")
+  end
+  function toggleESP(yesOrNo)
+      getgenv().ESP = yesOrNo
+  end
+  function toggleAutoFire(yesOrNo)
+      getgenv().TriggerBot = yesOrNo
+  end
+  function toggleAimbot(yesOrNo)
+      getgenv().Aimbot = yesOrNo
+  end
+  function toggleBehindLock(yesOrNo) 
+      getgenv().Behind = yesOrNo
+  end
+  function toggleSmoothAimbot(yesOrNo)
+      getgenv().SmoothAim = yesOrNo
+  end
+  function toggleHideReload(yesOrNo)
+      getgenv().HideReload = yesOrNo
+  end
+  function toggleFixMovement(yesOrNo)
+      getgenv().FixMove = yesOrNo
+  end
+  function setAimAssistStrength(st)
+      getgenv().Strength = st
+  end
+  function toggleSilentAim(yesOrNo)
+      getgenv().SilentAim = yesOrNo
+  end
+  function toggleSnappyAim(yesOrNo)
+      getgenv().SnapAim = yesOrNo
+  end
+  function toggleSilentAim2(yesOrNo)
+      getgenv().silent = yesOrNo
+  end
+  
+  RivalsAPI = require(game:GetService("Players").LocalPlayer.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem)
+  RivalsCameraAPI = require(game:GetService("Players").LocalPlayer.PlayerScripts.Controllers.CameraController)
+  
+  visuals:AddToggle("ESP", false, toggleESP)
+  gameUI:AddToggle("Auto Fire", false, toggleAutoFire)
+  gameUI:AddToggle("Strong Aim-Assist", false, toggleSmoothAimbot)
+  gameUI:AddSlider("Strong Aim-Assist Strength", 0,100,0, setAimAssistStrength)
+  gameUI:AddToggle("Snap Aim-Assist", false, toggleSnappyAim)
+  
+  sectionBlatant = Blatant:AddSection("BLATANT - THIS MAY GET YOU BANNED")
+  sectionBlatant:AddToggle("Aimbot", false, toggleAimbot)
+  sectionBlatant:AddToggle("Silent Aim", false, toggleSilentAim2)
+  sectionBlatant:AddToggle("Behind Lock ON", false, toggleBehindLock)
+  sectionBlatant:AddToggle("Hide on Reload", false, toggleHideReload)
+  
+  sectionMovement = movement:AddSection("Movement")
+  sectionMovement:AddToggle("Fix Movement", true, toggleFixMovement)
+  
+  mobile = main:AddTab("Mobile")
+  mobileSec = mobile:AddSection("Mobile Support")
+  mobileCal = mobileSec:AddButton("Mobile Optimization", calibrate)
+  
+  function antiKatana(yesOrNo)
+      getgenv().AntiKatana = yesOrNo
+  end
+  getgenv().AntiKatana = true
+  getgenv().FixMove = true
+  katanaCounter = counterSec:AddToggle("Anti-Katana", true, antiKatana)
+  
+  --SCRIPT
+  
+  local VirtualInputManager = game:GetService("VirtualInputManager")
+  local function getHitboxPlayer(plr)
+      for i, v in pairs(workspace:GetChildren()) do
+          if v:FindFirstChild("HitboxBody") and v.Name == plr.Name then
+              return v
+          end
+      end
+      return {}
+  end
+  
+  function esp(getOtherPlayer)
+      for i,v in pairs(game:GetService("Players"):GetPlayers()) do
+          if v.Name ~= game:GetService("Players").LocalPlayer.Name then
+              if v.Character:FindFirstChild("Highlight") == nil then
+                  Instance.new("Highlight", v.Character)
+              end
+          end
+      end
+  end
+  local function IsObjectVisible(Object: BasePart)
+      local ObjectPosition = Object.Position
+  
+      local Players = game:GetService("Players")
+      local Player = Players.LocalPlayer
+  
+      local Camera = workspace.CurrentCameraDeezNutsInOhio
+      local Character = Player.Character
+  
+      local CameraPosition = Camera.CFrame.Position
+  
+      local Position = (CameraPosition + ObjectPosition) * 0.5
+      local Diff = (CameraPosition - ObjectPosition)
+  
+      local _, OnScreen = Camera:WorldToScreenPoint(ObjectPosition)
+      local Params = OverlapParams.new()
+      Params.FilterDescendantsInstances = {Character, Object}
+  
+      local BoundBox = workspace:GetPartBoundsInBox(CFrame.new(Position, Position + Diff.Unit), Vector3.zAxis * Diff.Magnitude, Params)
+  
+      return OnScreen and #BoundBox == 0
+  end
+  
+  function isObjectInWay(startPos, endPos, getOtherPlayer)
+      local direction = (endPos - startPos).Unit
+      local raycastParams = RaycastParams.new()
+      local result = workspace:Raycast(startPos, direction * (endPos-startPos).Magnitude, raycastParams)
+      if string.find(result.Instance.Name, "Hitbox") or string.find(result.Instance.Name, "Handle") or string.find(result.Instance.Parent.Name, getOtherPlayer.Name)then
+          return false
+      end
+      return result.Instance
+  end
+  
+  function autoFire(getOtherPlayer)
+      local cam = workspace.CurrentCameraDeezNutsInOhio
+      local center = workspace.CurrentCameraDeezNutsInOhio.ViewportSize / 2
+      local vector, onScreen = cam:WorldToScreenPoint(getOtherPlayer.Character.Head.Position)
+      local v = (Vector2.new(vector.X, vector.Y) - center).Magnitude
+      if v <= 100 and not isObjectInWay(game:GetService("Players").LocalPlayer.Character.Head.Position, getOtherPlayer.Character.Head.Position, getOtherPlayer) then
+          VirtualInputManager:SendMouseButtonEvent(globalX, globalY, 0, true, game, 1)
+          VirtualInputManager:SendMouseButtonEvent(globalX, globalY, 0, false, game, 1)
+      end
+  end
+  function getEnemies()
+      get = {}
+      for i, v in game:GetService("Players"):GetPlayers() do
+          pcall(function()
+              if (not v.Character:FindFirstChild("HumanoidRootPart"):FindFirstChild("TeammateLabel")) then
+                  if v == game:GetService("Players").LocalPlayer then
+                  else
+                      if v.Character.Humanoid.Health > 0 then
+                          table.insert(get, v)
+                      end
+                  end
+              end
+          end)
+      end
+      return get
+  end
+  function silent(getOtherPlayer)
+      RivalsCameraAPI.Rotation = CFrame.new(workspace.CurrentCameraDeezNutsInOhio.CFrame.Position, getOtherPlayer.Character.Head.Position)
+  end
+  function updateCamera()
+      encoded = encode(nil, workspace.CurrentCameraDeezNutsInOhio.CFrame.Rotation)
+      game:GetService("ReplicatedStorage").Remotes.Replication.Fighter.UpdateCameraRotation:FireServer(encoded)
+  end
+  function encode(a1, a2)
+      if a2 ~= a2 then
+          local v29_5_ = utf8.char
+          local v29_6_ = 0
+          v29_5_ = v29_5_(v29_6_)
+          local v29_3_ = v29_5_
+          local v29_4_ = utf8.char
+          v29_5_ = 0
+          v29_4_ = v29_4_(v29_5_)
+          local v29_2_ = v29_3_
+          return v29_2_
+      end
+      local v29_9_ = a2.X
+      local v29_8_ = v29_9_ % 6.283185
+      local v29_7_ = v29_8_ / 3.141593
+      local v29_6_ = v29_7_ / 2.000000
+      local v29_5_ = v29_6_ * 256.000000
+      local v29_4_ = v29_5_ + 0.500000
+      local v29_3_ = math.floor
+      v29_3_ = v29_3_(v29_4_)
+      v29_4_ = 0
+      v29_5_ = 255
+      local v29_2_ = math.clamp
+      v29_2_ = v29_2_(v29_3_, v29_4_, v29_5_)
+      local v29_10_ = a2.Y
+      v29_9_ = v29_10_ % 6.283185
+      v29_8_ = v29_9_ / 3.141593
+      v29_7_ = v29_8_ / 2.000000
+      v29_6_ = v29_7_ * 256.000000
+      v29_5_ = v29_6_ + 0.500000
+      v29_4_ = math.floor
+      v29_4_ = v29_4_(v29_5_)
+      v29_5_ = 0
+      v29_6_ = 255
+      v29_3_ = math.clamp
+      v29_3_ = v29_3_(v29_4_, v29_5_, v29_6_)
+      v29_7_ = utf8.char
+      v29_8_ = v29_2_
+      v29_7_ = v29_7_(v29_8_)
+      v29_5_ = v29_7_
+      v29_6_ = utf8.char
+      v29_7_ = v29_3_
+      v29_6_ = v29_6_(v29_7_)
+      v29_4_ = v29_5_
+      return v29_4_
+  end
+  function closest()
+      plrs = getEnemies()
+      close = nil
+      min = 500
+      for i, v in pairs(plrs) do
+          if (v.Character:FindFirstChild("HumanoidRootPart").Position - game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").Position).Magnitude < min then
+              min = (v.Character:FindFirstChild("HumanoidRootPart").Position - game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").Position).Magnitude
+              close = v
+          end
+      end
+      return close
+  end
+  function smoothAimbot(getOtherPlayer)
+      RivalsCameraAPI:MimicRotation(workspace.CurrentCameraDeezNutsInOhio.CFrame:Lerp(CFrame.new(workspace.CurrentCameraDeezNutsInOhio.CFrame.Position, getOtherPlayer.Character.Head.Position), getgenv().Strength/100))
+  end
+  function snappyAimbot(getOtherPlayer)
+    if firstEmulation then
+        local emulateAimAssist
+        emulateAimAssist = hookfunction(RivalsAPI._CanUseAimAssist, LPH_NO_VIRTUALIZE(function(...) -- added LPH_NO_VIRTUALIZE 
+            return true
+        end))
+        RivalsAPI._FinishAimAssist = LPH_NO_VIRTUALIZE(function() end)
+        firstEmulation = false
+    end
+    RivalsAPI._StartAimAssist()
+    end
+  function fixedMovement(getOtherPlayer)
+      humanoidRootPart = game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+      other = getOtherPlayer.Character:FindFirstChild("HumanoidRootPart")
+      humanoidRootPart.CFrame = CFrame.new(humanoidRootPart.Position, other.Position)
+  end
+  function getOnline()
+      online = false
+      for i,v in pairs(game:GetService("Players").LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces:GetChildren()) do
+          if v.Visible then
+              online = true
+          end
+      end
+      return online
+  end
+  function reloadGUI()
+      for i, v in pairs(game:GetService("Players").LocalPlayer.PlayerGui.MainGui.MainFrame.ItemInterfaces:GetChildren()) do
+          if string.find(v.Name, game:GetService("Players").LocalPlayer.Name) then
+              if v.Mouse.Cooldowns:FindFirstChild("MouseCooldownSlot") and v.Visible then
+                  return true
+              end
+          end
+      end
+      return false
+  end
+  last1 = false
+  last2 = false
+  function getReload()
+      get = reloadGUI()
+      last2 = last1
+      last1 = get
+      return last2 or last1
+  end
+  pos = nil
+  pos2 = nil
+  db = false
+  z = false
+  firstTime = true
+  
+  function hideOnReload(getOtherPlayer)
+      if getReload() and db == false then
+          db = true
+          pos = game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame
+      end
+      if getReload() == false and db == false and z == false then
+          game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame = pos
+          if game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").Position.Y > 4500 then
+              game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame -= Vector3.new(0,1000,0) 
+          end
+          firstTime = false
+          z = true
+      end
+      if db == true then
+          if getReload() then
+              game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame = pos + (Vector3.new(0,1000,0))
+              z = false
+          else
+              db = false
+          end
+      end
+  end
+  
+  function softAim(getOtherPlayer)
+      RivalsCameraAPI:MimicRotation(CFrame.new(workspace.CurrentCameraDeezNutsInOhio.CFrame.Position, getOtherPlayer.Character.Head.Position))
+  end
+  
+  function undetectedSilentAim(getOtherPlayer)
+      task.wait(0.25)
+      softAim(getOtherPlayer)
+  end
+  
+  function detectKatana(getOtherPlayer)
+      name = getOtherPlayer.Name.." - Katana - Katana"
+      for i, v in pairs(workspace.ViewModels.FirstPerson:GetChildren()) do
+          if v.Name == name then
+              return true
+          end
+      end
+      return false
+  end
+  
+  function GoOnTopOfHead(getOtherPlayer)
+      pcall(function()
+          game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").Position = getOtherPlayer.Character.Head.Position + Vector3.new(0,30,0)
+          task.wait(0.05)
+          game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart").Position = getOtherPlayer.Character.Head.Position
+      end)
+  end
+  
+  workspace.CurrentCamera.Name = "CurrentCameraDeezNutsInOhio"
+  
+  function render()
+  
+          if getOnline() then
+              local getOtherPlayer = closest()
+              if getOtherPlayer then
+                  if getgenv().TriggerBot == true then
+                      if getgenv().AntiKatana == true and detectKatana(getOtherPlayer) == false then
+              
+                              autoFire(getOtherPlayer)
+                      end
+                      if getgenv().AntiKatana == false then
+              
+                              autoFire(getOtherPlayer)
+              
+                      end
+                  end
+                  if getgenv().SilentAim == true then
+                      undetectedSilentAim(getOtherPlayer)
+                  end
+                  if getgenv().Aimbot == true then
+                          softAim(getOtherPlayer)
+      
+                  end
+                  if getgenv().SmoothAim == true then
+      
+                          smoothAimbot(getOtherPlayer)
+      
+                  end
+                  if getgenv().HideReload == true then
+      
+                          hideOnReload(getOtherPlayer)
+      
+                  end
+                  if getgenv().FixMove == true then
+                      
+                          fixedMovement(getOtherPlayer)
+      
+                  end
+                  if getgenv().ESP == true then
+                          esp(getOtherPlayer)
+      
+                  end
+                  
+                  if getgenv().Behind == true then
+      
+                          GoOnTopOfHead(getOtherPlayer)
+      
+                  end
+                  if getgenv().SnapAim == true then
+                      snappyAimbot(getOtherPlayer)
+                  end
+                  if getgenv().silent == true then
+                      silent(getOtherPlayer)
+                  end
+              end	
+          end
+  end
+  game:GetService("RunService").RenderStepped:Connect(render)
+  LocalPlayer = game:GetService("Players").LocalPlayer
+  TweenService = game.TweenService
+  local function showNotification()
+      local screenGui = Instance.new("ScreenGui")
+      screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+  
+      local frame = Instance.new("Frame")
+      frame.Size = UDim2.new(0, 0, 0, 80)
+      frame.Position = UDim2.new(0, -600, 0, 20)
+      frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+      frame.BorderSizePixel = 0
+      frame.ClipsDescendants = true
+      frame.Parent = screenGui
+  
+      local uiCorner = Instance.new("UICorner")
+      uiCorner.CornerRadius = UDim.new(0, 10)
+      uiCorner.Parent = frame
+  
+      local textLabel = Instance.new("TextLabel")
+      textLabel.Size = UDim2.new(1, -20, 0.5, 0)
+      textLabel.Position = UDim2.new(0, 10, 0, 0)
+      textLabel.BackgroundTransparency = 1
+      textLabel.Text = "If there are any problems, please open a ticket in the Discord."
+      textLabel.TextColor3 = Color3.new(1, 1, 1)
+      textLabel.Font = Enum.Font.GothamSemibold
+      textLabel.TextSize = 18
+      textLabel.TextXAlignment = Enum.TextXAlignment.Center
+      textLabel.Parent = frame
+  
+      local discordLink = Instance.new("TextButton")
+      discordLink.Size = UDim2.new(0.5, 0, 0.3, 0)
+      discordLink.Position = UDim2.new(0.25, 0, 0.6, 0)
+      discordLink.BackgroundColor3 = Color3.fromRGB(59, 130, 246)
+      discordLink.Text = "discord.gg/nexity"
+      discordLink.TextColor3 = Color3.new(1, 1, 1)
+      discordLink.Font = Enum.Font.GothamBold
+      discordLink.TextSize = 16
+      discordLink.Parent = frame
+  
+      Instance.new("UICorner", discordLink).CornerRadius = UDim.new(0, 5)
+  
+      local gradient = Instance.new("UIGradient")
+      gradient.Color = ColorSequence.new({
+          ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 87, 87)),
+          ColorSequenceKeypoint.new(1, Color3.fromRGB(87, 87, 255))
+      })
+      gradient.Parent = frame
+  
+      discordLink.MouseButton1Click:Connect(function()
+          setclipboard("discord.gg/nexity")
+          discordLink.Text = "Copied!"
+          task.delay(1, function() discordLink.Text = "discord.gg/nexity" end)
+      end)
+  
+      TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+          Size = UDim2.new(0, 600, 0, 80),
+          Position = UDim2.new(0.5, -300, 0, 20)
+      }):Play()
+  
+      task.delay(4, function()
+          local fadeOutTween = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+              Position = UDim2.new(0.5, -300, 0, -90),
+              BackgroundTransparency = 1
+          })
+          fadeOutTween:Play()
+          fadeOutTween.Completed:Connect(function()
+              screenGui:Destroy()
+          end)
+      end)
+  end
+  
+  showNotification()
+  i = 0
+  local UserInputService = game:GetService("UserInputService")
+  
+  local mouseHoldStartTime = 0
+  local isHolding = false
+  local holdDuration = 0.3
+  local function onMouseButtonDown(input, gameProcessedEvent)
+      if input.UserInputType == Enum.UserInputType.MouseButton1 then
+          mouseHoldStartTime = tick()
+          isHolding = true
+      end
+  end
+  
+  local function onMouseButtonUp(input, gameProcessedEvent)
+      if input.UserInputType == Enum.UserInputType.MouseButton1 and isHolding then
+          local elapsedTime = tick() - mouseHoldStartTime
+          if elapsedTime > holdDuration then
+              i += 1
+              if i > 4 then
+                  return
+              end
+              lib:Notification():Notify("info", "Hey!", "Please tap repeatedly instead of holding, it makes the script much better.", 5)
+          end
+          isHolding = false
+      end
+  end
+  
+  local function onXKeyPress(input)
+      if input.KeyCode == Enum.KeyCode.X then
+          getgenv().Aimbot = not getgenv().Aimbot
+      end
+  end
+  UserInputService.InputBegan:Connect(onXKeyPress)
